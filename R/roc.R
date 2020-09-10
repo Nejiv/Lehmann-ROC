@@ -119,7 +119,7 @@ lehmann_roc <- function(formula, data, cov_vals=NULL, FPR=NULL){
     }
     #require covariates for now
     else {
-      stop("You must provide a list of covariates")
+      #stop("You must provide a list of covariates")
     }
   }
 
@@ -135,7 +135,7 @@ print.lehmann_roc <- function(obj){
   cat("Theta:", obj$theta, "\n")
   cat("Variance of theta:", obj$var_theta, "\n")
   cat("AUC:", obj$auc, "\n")
-  cat("Variance of AUC:", obj$auc, "\n")
+  cat("Variance of AUC:", obj$var_auc, "\n")
 }
 
 # override default plot function
@@ -226,7 +226,6 @@ variance_auc <- function(theta, variance_theta){
   return((theta+1)^(-4)*variance_theta)
 }
 
-
 partial_auc <- function(theta){
   integrand <- function(x){
     return((theta+1)^(-1)*x^(theta+1))
@@ -266,3 +265,8 @@ variance_roc <- function(theta, variance_theta){
   }
   return(var_at)
 }
+
+
+
+
+# specify multiple cov vals at once
