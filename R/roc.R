@@ -130,6 +130,38 @@ lehmann_roc <- function(formula, data, cov_vals=NULL, FPR=NULL){
   return(value)
 }
 
+#' Returns a data.frame containing values of \code{theta}, \code{var_theta}
+#' \code{auc}, and \code{var_auc}
+#'
+#' This function is used when a user wants apply covariate values
+#'
+#' @param l A lehmann_roc object.
+#' @param covariates A list of covariate values
+#' @param ... More covariate values
+#'
+#' @return A data.frame containing the values of relavant statistics
+#' with the covariate values they were computed from.
+apply_covariates <- function(l, covariates, ...){
+  covariates <- list(covariates, ...)
+  return_val <- data.frame()
+  for(cov_vals in covariates) {
+    theta <- l$theta(cov_vals)
+    var_theta <- l$var_theta(cov_vals)
+    auc <- l$auc(theta)
+    var_auc <- l$var_auc(theta, var_theta)
+    partial_auc <- l$partial_auc(theta)
+    var_partial_auc <- l$var_partial_auc(theta, var_theta)
+    roc <- l$roc(theta)
+    var_roc <- l$var_roc(theta, var_theta)
+
+    lst <- list(theta=theta, var_theta=var_theta, auc=auc, var_auc=var_auc)
+    lst <- c(cov_vals, lst)
+    return_val <- rbind(return_val, lst)
+  }
+  return(return_val)
+}
+
+
 # override default print function
 print.lehmann_roc <- function(obj){
   cat("Theta:", obj$theta, "\n")
