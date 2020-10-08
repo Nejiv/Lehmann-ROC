@@ -1,25 +1,20 @@
 #' Lehmann model for ROC curves.
 #'
-#' Relevant statistics for a Lehmann model of an ROC curve.
+#' Relevant statistics for Lehmann models of ROC curves.
 #'
 #' @param formula A formula containing the covariates to be analyzed.
 #' @param data A data.frame containing the variables named in the formula.
-#' @param cov_vals An optional list of covariate values.
-#' @param FPR An optional numeric describing the FPR at which to
-#' compute dependent values such as the partial auc, its variance etc.
 #'
 #' @return The output is a list of relavant statistics. \code{theta},
 #'  \code{var_theta}, \code{auc}, and \code{var_auc} are all numerics.
 #'  \code{partial_auc} and \code{var_partial_auc} are both functions of the
 #'  false positive rate. \code{roc} is a list containing numeric vectors
 #'  \code{TPR} and \code{FPR}. \code{var_roc} is a function of the false
-#'  positive rate. If the FPR parameter is provided, \code{partial_auc},
-#'  \code{var_partial_auc}, and \code{var_roc} will be computed to be
-#'  numerics. If one or more covariates are named in the formula, all
-#'  numeric values in the return list become functions of the covariates.
-#'  If a list of covariates, \code{cov_vals}, is provided, the covariate values
-#'  will be passed into the functions and the output will again contain
-#'  numerics.
+#'  positive rate. If the input formula contains concomitant covariates,
+#'  the return list will contain functions. For example, \code{theta}
+#'  would now be a function of the covariate values. The \code{apply_covariates}
+#'  function should be used to input values of covariates into appropriate
+#'  lehmann_roc objects.
 #'
 #' @examples
 #' # Import a dataset
@@ -32,6 +27,7 @@
 #' plot(l)
 #' l$theta
 #' l$auc
+#' l$partial_auc(0.5)
 #'
 #' # Create a Lehmann ROC model with age as a concomitant covariate.
 #' l <- lehmann_roc(futime~resid.ds*age, ovarian)
@@ -39,20 +35,19 @@
 #' # The output is now a list of functions
 #' summary(l)
 #'
-#' theta <- l$theta
-#' theta_at_60 <- theta(list(age=60))
-#' theta_at_60
-#' l$auc(theta_at_60)
-#' roc <- l$roc(theta_at_60)
-#' plot(roc$FPR, roc$TPR)
+#' \dontrun{
+#' l # errors
+#' plot(l) # errors
+#' }
 #'
-#' # Run the same model but include a list of covariate values and an FPR value.
-#' l <- lehmann_roc(futime~resid.ds*age, ovarian, list(age=60), FPR=0.8)
-#' summary(l)
-#' plot(l)
-#' l$theta
-#' l$auc
-lehmann_roc <- function(formula, data, cov_vals=NULL, FPR=NULL){
+#' # Use the apply_covariates function
+#' l_objects <- apply_covariates(l, list(age=21))
+#' l2 <- l_objects[["21"]]
+#' l2
+#' l2$partial_auc(0.5)
+#' plot(l2)
+#'
+lehmann_roc <- function(formula, data){
   #turn first term of formula into a Surv object
   formula = as.formula(paste("survival::Surv(", formula[2], ") ~", formula[3]))
 
@@ -82,13 +77,6 @@ lehmann_roc <- function(formula, data, cov_vals=NULL, FPR=NULL){
     var_partial_auc <- variance_partial_auc(theta, var_theta)
     roc <- roc(theta)
     var_roc <- variance_roc(theta, var_theta)
-
-    if(!is.null(FPR)){
-      stopifnot(0 <= FPR & FPR <= 1)
-      partial_auc <- partial_auc(FPR)
-      var_partial_auc <- var_partial_auc(FPR)
-      var_roc <- var_roc(FPR)
-    }
   } else {
     # these are all functions
     theta <- get_theta(betas, main_var)
@@ -99,28 +87,6 @@ lehmann_roc <- function(formula, data, cov_vals=NULL, FPR=NULL){
     var_partial_auc <- variance_partial_auc
     roc <- roc
     var_roc <- variance_roc
-    #if a list of covariates is provided, apply them to the functions
-    if (!is.null(cov_vals)){
-      theta <- theta(cov_vals)
-      var_theta <- var_theta(cov_vals)
-      auc <- auc(theta)
-      var_auc <- var_auc(theta, var_theta)
-      partial_auc <- partial_auc(theta)
-      var_partial_auc <- var_partial_auc(theta, var_theta)
-      roc <- roc(theta)
-      var_roc <- var_roc(theta, var_theta)
-
-      if(!is.null(FPR)){
-        stopifnot(0 <= FPR & FPR <= 1)
-        partial_auc <- partial_auc(FPR)
-        var_partial_auc <- var_partial_auc(FPR)
-        var_roc <- var_roc(FPR)
-      }
-    }
-    #require covariates for now
-    else {
-      #stop("You must provide a list of covariates")
-    }
   }
 
   value <- list(theta=theta, var_theta=var_theta, auc=auc, var_auc=var_auc,
@@ -130,20 +96,40 @@ lehmann_roc <- function(formula, data, cov_vals=NULL, FPR=NULL){
   return(value)
 }
 
-#' Returns a data.frame containing values of \code{theta}, \code{var_theta}
-#' \code{auc}, and \code{var_auc}
+#' Returns a list of lehmann_roc objects.
 #'
 #' This function is used when a user wants apply covariate values
+#' to a lehmann_roc object. This function returns a list containing
+#' n lehmann_roc objects, where n is the number of lists of covariates
+#' provided.
 #'
 #' @param l A lehmann_roc object.
-#' @param covariates A list of covariate values
-#' @param ... More covariate values
+#' @param covariates A list of covariate values.
+#' @param ... More lists of covariate values.
 #'
-#' @return A data.frame containing the values of relavant statistics
-#' with the covariate values they were computed from.
+#' @return A list containing lehmann_roc objects with the covariate
+#' values applied. The labels of the list are the values of covariates,
+#' separated by comams.
+#'
+#' @examples
+#' \dontrun{
+#' l <- # create lehmann_roc object
+#' l_objects <- apply_covariates(l, list(cov_val_1=1, cov_val_2=2),
+#' list(cov_val_1=2, cov_val_2=2))
+#' l_1 <- l_objects[["1, 2"]]
+#' l_2 <- l_objects[["2, 2"]]
+#' l_1$theta
+#' l_1$partial_auc(0.5)
+#' plot(l_1)
+#'
+#' l_2$theta
+#' l_2$partial_auc(0.5)
+#' plot(l_2)
+#' }
+#'
 apply_covariates <- function(l, covariates, ...){
   covariates <- list(covariates, ...)
-  return_val <- data.frame()
+  return_val <- list()
   for(cov_vals in covariates) {
     theta <- l$theta(cov_vals)
     var_theta <- l$var_theta(cov_vals)
@@ -154,9 +140,11 @@ apply_covariates <- function(l, covariates, ...){
     roc <- l$roc(theta)
     var_roc <- l$var_roc(theta, var_theta)
 
-    lst <- list(theta=theta, var_theta=var_theta, auc=auc, var_auc=var_auc)
-    lst <- c(cov_vals, lst)
-    return_val <- rbind(return_val, lst)
+    lst <- list(theta=theta, var_theta=var_theta, auc=auc, var_auc=var_auc,
+                partial_auc=partial_auc, var_partial_auc=var_partial_auc,
+                roc=roc, var_roc=var_roc, covariates=cov_vals)
+    attr(lst, "class") <- "lehmann_roc"
+    return_val[[toString(cov_vals)]] <- lst
   }
   return(return_val)
 }
@@ -173,7 +161,7 @@ print.lehmann_roc <- function(obj){
 # override default plot function
 plot.lehmann_roc <- function(obj){
   plot(unlist(obj$roc[1]), unlist(obj$roc[2]),
-       main="Lehmann ROC Curve", xlab="FPR", ylab="TPR") # maybe add auc in text box
+       main="Lehmann ROC Curve", xlab="FPR", ylab="TPR")
 }
 
 # Returns list of betas and covariance matrix without unnecessary variables
@@ -242,13 +230,6 @@ variance_theta <- function(betas, cov, main_var){
   }
 }
 
-#' Returns the area under the ROC curve governed by the input parameter.
-#'
-#' @param theta The parameter.
-#' @return The area under the curve.
-#'
-#' @example
-#' auc(0.3)
 auc <- function(theta){
   return((theta+1)^(-1))
 }
@@ -297,8 +278,3 @@ variance_roc <- function(theta, variance_theta){
   }
   return(var_at)
 }
-
-
-
-
-# specify multiple cov vals at once

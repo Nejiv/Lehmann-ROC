@@ -2,22 +2,42 @@
 % Please edit documentation in R/roc.R
 \name{apply_covariates}
 \alias{apply_covariates}
-\title{Returns a data.frame containing values of \code{theta}, \code{var_theta}
-\code{auc}, and \code{var_auc}}
+\title{Returns a list of lehmann_roc objects.}
 \usage{
 apply_covariates(l, covariates, ...)
 }
 \arguments{
 \item{l}{A lehmann_roc object.}
 
-\item{covariates}{A list of covariate values}
+\item{covariates}{A list of covariate values.}
 
-\item{...}{More covariate values}
+\item{...}{More lists of covariate values.}
 }
 \value{
-A data.frame containing the values of relavant statistics
-with the covariate values they were computed from.
+A list containing lehmann_roc objects with the covariate
+values applied. The labels of the list are the values of covariates,
+separated by comams.
 }
 \description{
 This function is used when a user wants apply covariate values
+to a lehmann_roc object. This function returns a list containing
+n lehmann_roc objects, where n is the number of lists of covariates
+provided.
+}
+\examples{
+\dontrun{
+l <- # create lehmann_roc object
+l_objects <- apply_covariates(l, list(cov_val_1=1, cov_val_2=2),
+list(cov_val_1=2, cov_val_2=2))
+l_1 <- l_objects[["1, 2"]]
+l_2 <- l_objects[["2, 2"]]
+l_1$theta
+l_1$partial_auc(0.5)
+plot(l_1)
+
+l_2$theta
+l_2$partial_auc(0.5)
+plot(l_2)
+}
+
 }
